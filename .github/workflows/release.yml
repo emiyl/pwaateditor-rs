@@ -58,6 +58,8 @@ jobs:
           # -------- Linux --------
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
 
           # -------- Windows --------
           - os: windows-latest
@@ -124,6 +126,17 @@ jobs:
       - name: Install Zig
         if: matrix.os == 'ubuntu-latest'
         uses: goto-bus-stop/setup-zig@v2
+      
+      - name: Cache Zig
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/zig
+            .zig-cache
+          key: zig-${{ runner.os }}-${{ hashFiles('build.zig', 'build.zig.zon') }}
+          restore-keys: |
+            zig-${{ runner.os }}-
 
       - name: Install cargo-zigbuild
         if: matrix.os == 'ubuntu-latest'
