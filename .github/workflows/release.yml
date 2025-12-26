@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  BIN_NAME: PWAATeditor
+  BIN_NAME: pwaateditor-rs
 
 jobs:
   version:
