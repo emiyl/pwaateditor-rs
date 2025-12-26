@@ -138,10 +138,11 @@ jobs:
         shell: bash
         run: |
           mkdir dist
+          OUT="${BIN_NAME}-${{ matrix.target }}"
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            cp target/${{ matrix.target }}/release/${BIN_NAME}.exe dist/
+            cp target/${{ matrix.target }}/release/${BIN_NAME}.exe dist/${OUT}.exe
           else
-            cp target/${{ matrix.target }}/release/${BIN_NAME} dist/
+            cp target/${{ matrix.target }}/release/${BIN_NAME} dist/${OUT}
           fi
 
       - name: Upload artifact
@@ -234,4 +235,3 @@ jobs:
           name: ${{ needs.version.outputs.tag }}
           files: |
             artifacts/**/*
-            dist/*.zip
