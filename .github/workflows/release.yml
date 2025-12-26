@@ -94,12 +94,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: actions/cache@v4
         with:
-          path: |
-            /var/cache/apt
-            /var/lib/apt/lists
-          key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/**') }}
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-${{ hashFiles('**/apt-packages.txt') }}
           restore-keys: |
-            apt-${{ runner.os }}-
+            ${{ runner.os }}-apt-
 
       # ---------------- Linux GUI deps ----------------
       - name: Install Linux eframe dependencies
