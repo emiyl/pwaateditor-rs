@@ -84,6 +84,23 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # ---------------- Linux APT cache ----------------
+      - name: Cache APT packages
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt
+            /var/lib/apt/lists
+          key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/**') }}
+          restore-keys: |
+            apt-${{ runner.os }}-
+
       # ---------------- Linux GUI deps ----------------
       - name: Install Linux eframe dependencies
         if: matrix.os == 'ubuntu-latest'
