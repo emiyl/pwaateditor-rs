@@ -171,8 +171,8 @@ jobs:
         run: |
           mkdir -p dist
           lipo -create \
-            artifacts/x86_64-apple-darwin/${BIN_NAME} \
-            artifacts/aarch64-apple-darwin/${BIN_NAME} \
+            artifacts/x86_64-apple-darwin/${BIN_NAME}-x86_64-apple-darwin \
+            artifacts/aarch64-apple-darwin/${BIN_NAME}-aarch64-apple-darwin \
             -output dist/${BIN_NAME}
 
       - name: Create .app bundle
