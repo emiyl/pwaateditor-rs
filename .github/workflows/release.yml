@@ -1,0 +1,205 @@
+name: Build & Release (eframe)
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  BIN_NAME: PWAATeditor
+
+jobs:
+  version:
+    name: Generate version tag
+    runs-on: ubuntu-latest
+
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate tag
+        id: tag
+        run: |
+          DATE=$(date +%Y%m%d)
+          PREFIX="v${DATE}-r"
+
+          LAST=$(git tag --list "${PREFIX}*" --sort=-v:refname | head -n1)
+
+          if [[ -z "$LAST" ]]; then
+            REV=1
+          else
+            REV=$(( ${LAST##*-r} + 1 ))
+          fi
+
+          TAG="${PREFIX}${REV}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Push tag
+        run: |
+          git tag "${{ steps.tag.outputs.tag }}"
+          git push origin "${{ steps.tag.outputs.tag }}"
+
+  build:
+    needs: version
+    name: ${{ matrix.os }} – ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # -------- Linux --------
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+
+          # -------- Windows --------
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+
+          # -------- macOS --------
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # ---------------- Linux GUI deps ----------------
+      - name: Install Linux eframe dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libgl1-mesa-dev \
+            gcc-aarch64-linux-gnu
+
+      # ---------------- Build ----------------
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      # ---------------- Package ----------------
+      - name: Package
+        shell: bash
+        run: |
+          mkdir dist
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            cp target/${{ matrix.target }}/release/${BIN_NAME}.exe dist/
+          else
+            cp target/${{ matrix.target }}/release/${BIN_NAME} dist/
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/*
+
+  macos-app:
+    name: macOS Universal .app
+    needs: build
+    runs-on: macos-latest
+
+    env:
+      APP_NAME: YourAppName
+      BIN_NAME: your_app_name
+      BUNDLE_ID: com.example.yourapp
+
+    steps:
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create universal binary
+        run: |
+          mkdir -p dist
+          lipo -create \
+            artifacts/x86_64-apple-darwin/${BIN_NAME} \
+            artifacts/aarch64-apple-darwin/${BIN_NAME} \
+            -output dist/${BIN_NAME}
+
+      - name: Create .app bundle
+        run: |
+          APP=dist/${APP_NAME}.app
+          mkdir -p $APP/Contents/MacOS
+          mkdir -p $APP/Contents/Resources
+
+          cp dist/${BIN_NAME} $APP/Contents/MacOS/${APP_NAME}
+          chmod +x $APP/Contents/MacOS/${APP_NAME}
+
+          cat <<EOF > $APP/Contents/Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>${APP_NAME}</string>
+            <key>CFBundleIdentifier</key>
+            <string>${BUNDLE_ID}</string>
+            <key>CFBundleName</key>
+            <string>${APP_NAME}</string>
+            <key>CFBundleVersion</key>
+            <string>${{ needs.version.outputs.tag }}</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${{ needs.version.outputs.tag }}</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>11.0</string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Zip app
+        run: |
+          cd dist
+          zip -r ${APP_NAME}-macOS-universal.zip ${APP_NAME}.app
+
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-universal-app
+          path: dist/*.zip
+
+  release:
+    needs: [version, build, macos-app]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: ${{ needs.version.outputs.tag }}
+          files: |
+            artifacts/**/*
+            dist/*.zip
