@@ -1,4 +1,7 @@
-name: Build & Release (eframe)
+permissions:
+  contents: write
+
+name: Build & Release
 
 on:
   push:
