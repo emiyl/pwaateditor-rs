@@ -156,9 +156,9 @@ jobs:
     runs-on: macos-latest
 
     env:
-      APP_NAME: YourAppName
-      BIN_NAME: your_app_name
-      BUNDLE_ID: com.example.yourapp
+      APP_NAME: PWAATeditor
+      BIN_NAME: pwaateditor-rs
+      BUNDLE_ID: com.emiyl.pwaateditor
 
     steps:
       - name: Download macOS artifacts
